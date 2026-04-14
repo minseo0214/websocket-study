@@ -18,6 +18,13 @@ export type ClientEvent =
       };
     }
   | {
+      type: "resume_translation";
+      payload: {
+        sessionId: string;
+        lastEventId: number;
+      };
+    }
+  | {
       type: "ping";
       payload: {
         ts: number;

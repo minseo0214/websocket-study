@@ -232,6 +232,7 @@ let activeRequest: {
   sourceLanguage: string;
   targetLanguage: string;
 } | null = null;
+let pendingResume = false;
 
 localStorage.setItem(sessionStorageKey, sessionId);
 sessionIdEl.textContent = sessionId;
@@ -268,6 +269,7 @@ function connect() {
     setConnectionState("connected");
     bannerEl.textContent = "연결되었습니다.";
     startHeartbeat();
+    pendingResume = true;
 
     send({
       type: "hello",
@@ -276,16 +278,6 @@ function connect() {
         lastEventId,
       },
     });
-
-    if (activeRequest) {
-      send({
-        type: "start_translation",
-        payload: {
-          sessionId,
-          ...activeRequest,
-        },
-      });
-    }
   });
 
   socket.addEventListener("message", (event) => {
@@ -320,7 +312,27 @@ function handleServerEvent(event: ServerEvent) {
       sessionIdEl.textContent = sessionId;
       serverInstanceIdEl.textContent = event.payload.serverInstanceId;
       localStorage.setItem(sessionStorageKey, sessionId);
-      lastEventId = event.payload.lastEventId;
+      if (pendingResume) {
+        if (activeRequest && event.payload.lastEventId === 0 && lastEventId === 0) {
+          send({
+            type: "start_translation",
+            payload: {
+              sessionId,
+              ...activeRequest,
+            },
+          });
+        } else if (activeRequest) {
+          send({
+            type: "resume_translation",
+            payload: {
+              sessionId,
+              lastEventId,
+            },
+          });
+          bannerEl.textContent = "기존 번역 스트림을 복구하는 중입니다.";
+        }
+      }
+      pendingResume = false;
       return;
 
     case "translation_started":

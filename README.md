@@ -31,9 +31,10 @@ packages/
 ### 2. 서버 배포 시 유저가 끊김을 덜 느끼도록 재연결
 
 - 클라이언트는 `sessionId`를 로컬에 저장합니다.
+- 서버는 `translation_jobs`, `translation_events`를 Postgres에 저장합니다.
 - 서버는 종료 신호를 받으면 `server_draining` 이벤트를 보낸 뒤 연결을 닫습니다.
 - 클라이언트는 close code `4010`을 받으면 자동 재연결합니다.
-- 진행 중 요청이 있으면 같은 `sessionId`와 요청 본문으로 자동 재요청합니다.
+- 재연결 후 클라이언트는 `resume_translation`을 보내고, 서버는 `lastEventId` 이후 이벤트만 재전송합니다.
 
 즉, 사용자는 "잠깐 멈췄다가 다시 이어지는" 정도로 느끼고, 별도의 새로고침 없이 흐름을 이어갈 수 있습니다.
 
@@ -49,12 +50,14 @@ npm install
 ### 2. 서버 실행
 
 ```bash
+nvm use
 npm run dev:server
 ```
 
 ### 3. 클라이언트 실행
 
 ```bash
+nvm use
 npm run dev:client
 ```
 
@@ -68,30 +71,55 @@ Postgres 로컬 테스트용 compose 파일을 넣어두었습니다.
 docker compose up -d
 ```
 
-현재 서버는 메모리 저장소를 쓰고 있고, `packages/db/schema.sql`은 실제 배포용 복구 구조를 준비하는 출발점입니다.
+현재 서버는 Postgres를 상태 원본으로 사용합니다. 기본 연결 문자열은 아래와 같습니다.
+
+```bash
+postgres://websocket:websocket@localhost:5432/websocket_study
+```
+
+필요하면 `DATABASE_URL`로 바꿀 수 있습니다.
 
 ## 배포 전략 메모
 
-학습용 예제는 "재연결 전략"에 초점을 맞췄고, 진짜 무중단에 가깝게 가려면 상태를 외부 저장소로 빼야 합니다.
+이 예제는 `Postgres 기반 resume`까지 포함한 단계입니다. Kubernetes 운영형으로 갈 때는 여기에 Redis, readiness, drain orchestration을 추가하는 방식으로 확장하면 됩니다.
 
 ### 지금 예제에서 되는 것
 
 - 서버 재시작 감지
 - 클라이언트 자동 재연결
-- 같은 세션으로 재요청
+- 같은 세션으로 resume
+- `lastEventId` 이후 이벤트 재전송
+- Postgres 기반 상태 복구
 - 유저가 수동 새로고침하지 않아도 복구
 
 ### 운영 환경에서 추가할 것
 
-1. 번역 job 상태를 DB 또는 Redis에 저장
-2. chunk 이벤트를 append-only 로 저장
-3. 새 서버 인스턴스가 이전 세션을 이어받도록 복구
-4. 로드밸런서에서 drain 동안 새 연결만 다른 인스턴스로 보냄
-5. readiness probe가 `draining` 상태를 반영하도록 구성
+1. Redis로 현재 진행 상태와 pub/sub 추가
+2. 새 서버 인스턴스 간 중복 실행 방지를 위한 분산 락 또는 ownership 추가
+3. 로드밸런서에서 drain 동안 새 연결만 다른 인스턴스로 보냄
+4. readiness probe가 `draining` 상태를 반영하도록 구성
+5. 실제 번역 엔진 호출 결과를 durable queue와 연결
+
+## 재연결 테스트
+
+1. `docker compose up -d`
+2. `npm run dev:server`
+3. `npm run dev:client`
+4. 브라우저에서 긴 문장으로 번역 시작
+5. chunk가 오는 중에 서버를 종료
+6. 다시 서버 실행
+7. 클라이언트가 자동 재연결 후 `resume_translation`으로 이어받는지 확인
+
+확인 포인트:
+
+- 세션 ID가 유지되는지
+- 서버 인스턴스 ID는 바뀌었지만 작업이 이어지는지
+- 이미 받은 chunk 이후부터만 이벤트가 오는지
+- 완료 후 중복 chunk 없이 `translation_completed`가 오는지
 
 ## 다음 확장 추천
 
-1. `packages/db`에 Prisma 또는 Drizzle 추가
-2. Redis pub/sub 로 여러 서버 인스턴스 간 세션 공유
+1. Redis pub/sub 로 여러 서버 인스턴스 간 세션 공유
+2. job ownership 또는 advisory lock 으로 중복 실행 방지
 3. 실제 STT -> 번역 -> TTS 파이프라인 연결
 4. 인증 토큰과 사용자별 세션 분리

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@websocket-study/db": "0.1.0",
     "@websocket-study/shared": "0.1.0",
     "ws": "^8.18.0"
   },

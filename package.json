@@ -13,7 +13,7 @@
   "scripts": {
     "dev:server": "npm run dev --workspace @websocket-study/server",
     "dev:client": "npm run dev --workspace @websocket-study/client",
-    "build": "npm run build --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "build": "npm run build --workspace @websocket-study/db && npm run build --workspace @websocket-study/shared && npm run build --workspace @websocket-study/server && npm run build --workspace @websocket-study/client",
+    "typecheck": "npm run typecheck --workspace @websocket-study/db && npm run typecheck --workspace @websocket-study/shared && npm run typecheck --workspace @websocket-study/server && npm run typecheck --workspace @websocket-study/client"
   }
 }
