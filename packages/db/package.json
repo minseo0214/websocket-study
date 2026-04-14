@@ -1,0 +1,10 @@
+{
+  "name": "@websocket-study/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'db package is schema-only for now.'",
+    "typecheck": "echo 'No TypeScript files in db package yet.'"
+  }
+}

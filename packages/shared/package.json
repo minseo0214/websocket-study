@@ -1,0 +1,12 @@
+{
+  "name": "@websocket-study/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "scripts": {
+    "build": "echo 'shared package does not require build step.'",
+    "typecheck": "echo 'shared package exports JS runtime and d.ts types.'"
+  }
+}
