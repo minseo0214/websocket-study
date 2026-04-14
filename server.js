@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { WebSocketServer } = require('ws');
+const { WebSocket, WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
 
@@ -48,7 +48,7 @@ wss.on('connection', (ws, req) => {
       broadcast({ type: 'chat', sender: parsed.sender || '익명', message: parsed.message }, null);
     } else if (parsed.type === 'echo') {
       // Echo back only to the sender
-      if (ws.readyState === ws.OPEN) {
+      if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'echo', message: parsed.message }));
       }
     }
@@ -73,7 +73,7 @@ wss.on('connection', (ws, req) => {
 function broadcast(payload, exclude) {
   const data = JSON.stringify(payload);
   for (const client of clients) {
-    if (client !== exclude && client.readyState === client.OPEN) {
+    if (client !== exclude && client.readyState === WebSocket.OPEN) {
       client.send(data);
     }
   }
